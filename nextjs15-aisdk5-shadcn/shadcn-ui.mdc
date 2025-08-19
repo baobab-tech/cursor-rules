@@ -1,0 +1,107 @@
+---
+description: shadcn/ui component organization and styling patterns
+globs:
+  - "components/**/*.{tsx,ts}"
+  - "lib/utils.ts"
+  - "components.json"
+alwaysApply: false
+---
+
+## Component Installation & Usage
+- Use shadcn/ui components via `pnpm dlx shadcn@latest add [component]` - avoid custom implementations of common UI patterns.
+- Follow the component structure: place reusable UI in `@/components/ui/`, feature-specific in `@/components/`.
+- Import from `@/components/ui/[component]` and compose with custom logic in feature components.
+
+## Component Organization Strategy
+- **Page-specific components**: Place components only used by a specific page/route next to that page in the app folder
+- **Reusable components**: Use `@/components/` folder for components shared across multiple pages  
+- **UI primitives**: shadcn/ui components automatically go in `@/components/ui/` folder
+- **Feature components**: Compose UI primitives into feature-specific components in `@/components/`
+
+## Available shadcn/ui Components
+Use `pnpm dlx shadcn@latest add [component]` to install any of these components:
+
+**Layout & Navigation:**
+- Accordion, Breadcrumb, Menubar, Navigation Menu, Pagination, Separator, Sidebar, Tabs
+
+**Forms & Inputs:**
+- Button, Checkbox, Combobox, Input, Input OTP, Label, Radio Group, Select, Switch, Textarea, React Hook Form
+
+**Feedback & Overlays:**
+- Alert, Alert Dialog, Dialog, Drawer, Hover Card, Popover, Toast, Tooltip, Progress, Skeleton
+
+**Data Display:**
+- Avatar, Badge, Card, Chart, Data Table, Table, Typography, Aspect Ratio
+
+**Interactive:**
+- Calendar, Carousel, Collapsible, Command, Context Menu, Date Picker, Dropdown Menu, Resizable, Scroll-area, Slider, Toggle, Toggle Group
+
+**Notifications:**
+- Sonner (toast notifications)
+
+## Styling Patterns
+- Prefer `cn()` utility from `@/lib/utils` for conditional classes; use `clsx` and `tailwind-merge` appropriately:
+  ```tsx
+  import { cn } from "@/lib/utils";
+  
+  function Button({ className, variant, ...props }) {
+    return (
+      <button
+        className={cn(
+          "base-button-classes",
+          variants({ variant }),
+          className
+        )}
+        {...props}
+      />
+    );
+  }
+  ```
+
+## Component Variants
+- Use `cva` (class-variance-authority) for component variants; define props-based styling patterns:
+  ```tsx
+  import { cva, type VariantProps } from "class-variance-authority";
+  
+  const buttonVariants = cva(
+    "inline-flex items-center justify-center rounded-md",
+    {
+      variants: {
+        variant: {
+          default: "bg-primary text-primary-foreground",
+          destructive: "bg-destructive text-destructive-foreground",
+        },
+        size: {
+          default: "h-10 px-4 py-2",
+          sm: "h-9 rounded-md px-3",
+        },
+      },
+      defaultVariants: {
+        variant: "default",
+        size: "default",
+      },
+    }
+  );
+  ```
+
+## Theming & CSS Variables
+- Keep design tokens in CSS variables in `app/globals.css`; support light/dark modes via CSS custom properties.
+- Use the `hsl(var(--variable))` pattern for colors:
+  ```css
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --primary: 0 0% 9%;
+  }
+  
+  .dark {
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+  }
+  ```
+
+## Accessibility
+- Ensure interactive elements have proper ARIA labels and roles.
+- Use semantic HTML elements when possible.
+- Test keyboard navigation and screen reader compatibility.

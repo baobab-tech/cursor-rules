@@ -1,0 +1,68 @@
+---
+description: Tailwind CSS v3 utility-first and design system patterns
+globs:
+  - "**/*.{tsx,ts,jsx,js}"
+  - "tailwind.config.*"
+  - "app/globals.css"
+alwaysApply: false
+---
+
+## Utility-First Approach
+- Follow Tailwind v3 utility-first methodology; avoid custom CSS when utilities exist.
+- Use responsive design with mobile-first breakpoints: `sm:`, `md:`, `lg:`, `xl:`, `2xl:`.
+- Leverage state variants: `hover:`, `focus:`, `active:`, `disabled:`, `group-hover:`.
+
+## Design System Integration
+- Define custom design tokens in `tailwind.config.ts` using the `extend` pattern:
+  ```ts
+  module.exports = {
+    theme: {
+      extend: {
+        colors: {
+          background: 'hsl(var(--background))',
+          foreground: 'hsl(var(--foreground))',
+        },
+        fontFamily: {
+          sans: ['var(--font-geist)'],
+        },
+      },
+    },
+  };
+  ```
+
+## CSS Variables & Theming
+- Use CSS custom properties for dynamic theming; follow the `hsl(var(--variable))` pattern.
+- Support light/dark mode switching through CSS variables:
+  ```css
+  @layer base {
+    :root {
+      --background: 0 0% 100%;
+      --foreground: 0 0% 3.9%;
+    }
+    
+    .dark {
+      --background: 0 0% 3.9%;
+      --foreground: 0 0% 98%;
+    }
+  }
+  ```
+
+## Component Organization
+- Use `@layer` directive to organize custom styles: `@layer base`, `@layer components`, `@layer utilities`.
+- Keep component-specific styles minimal; prefer composition over custom CSS.
+- Use Tailwind's arbitrary value notation sparingly: `w-[calc(100%-2rem)]`.
+
+## Performance Optimization
+- Configure `content` paths properly to ensure optimal purging:
+  ```ts
+  content: [
+    './app/**/*.{js,ts,jsx,tsx,mdx}',
+    './components/**/*.{js,ts,jsx,tsx,mdx}',
+  ],
+  ```
+- Use JIT mode benefits; avoid overly complex class combinations that hurt readability.
+
+## Best Practices
+- Group related utilities logically: layout → spacing → colors → typography.
+- Use semantic class naming for reusable patterns via `@apply` directive when necessary.
+- Leverage plugins: `tailwindcss-animate`, `@tailwindcss/typography` for enhanced functionality.

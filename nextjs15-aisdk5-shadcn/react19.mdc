@@ -1,0 +1,35 @@
+---
+description: React 19 usage (actions, async transitions, server components first)
+globs:
+  - "app/**/*.{tsx,ts}"
+  - "components/**/*.{tsx,ts}"
+alwaysApply: false
+---
+
+## Component Strategy
+- **Server Component by default.** Add `"use client"` only when needed (state/effects/browser APIs).
+- Keep props serializable across the server/client boundary.
+- Use the React Compiler (if enabled) to reduce manual memoization; avoid premature `useMemo`/`useCallback`.
+
+## Actions & Async Transitions
+- Prefer **form actions** or async event handlers with transitions for mutations:
+  ```tsx
+  "use client";
+  import { useTransition } from "react";
+  function SaveButton({ action }: { action: (formData: FormData) => Promise<void> }) {
+    const [isPending, startTransition] = useTransition();
+    return (
+      <button
+        disabled={isPending}
+        onClick={() => startTransition(async () => { await action(new FormData()); })}
+      >
+        {isPending ? "Saving..." : "Save"}
+      </button>
+    );
+  }
+  ```
+- Use optimistic UI with transitions; let React manage pending and error states.
+
+## Ergonomics
+- Prefer controlled inputs with minimal state; lift server data-fetching to the server layer.
+- Handle errors with error boundaries at meaningful route segment boundaries.

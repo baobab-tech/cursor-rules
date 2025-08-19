@@ -1,0 +1,64 @@
+---
+description: Vercel AI SDK v5 patterns (typed chat, UIMessage/ModelMessage, tools, SSE)
+globs:
+  - "app/api/**/route.ts"
+  - "app/**/actions.ts"
+  - "lib/ai/**/*"
+  - "components/**/*Chat*.{tsx,ts}"
+  - "components/**/Assistant*.{tsx,ts}"
+alwaysApply: false
+---
+
+## Message Shapes & Persistence
+- Use **UIMessage** as the source of truth on the client/server; convert to **ModelMessage** only for model calls.
+  ```ts
+  import { convertToModelMessages, type UIMessage } from "ai";
+  const modelMessages = convertToModelMessages(uiMessages);
+  ```
+- Persist the UIMessage array in `onFinish`/`toUIMessageStreamResponse` callbacks; don't persist raw model responses.
+
+## Data Parts (Streaming typed data)
+- Stream typed data parts from the server; use stable ids to update the same part:
+  ```ts
+  writer.write({ type: "data-progress", id: "task-1", data: { step: 1, total: 3 }});
+  ```
+
+## Tool Invocations (Typed)
+- Define tool input/output schemas and rely on `tool-<name>` part types; handle explicit states:
+  - `input-streaming` → show partial input
+  - `input-available` → ready to execute
+  - `output-available` → render result
+  - `output-error` → surface errors, allow resubmission
+
+## Transport & Providers
+- Default to SSE streaming. Only switch transport (e.g., WebSockets) with a clear reason.
+- Use the Global Provider to centralize model config; avoid scattering provider selection.
+
+## Security
+- Keep model/API keys on the server; never expose in Client Components.
+- Validate and sanitize tool inputs on the server; do not trust model-generated tool args.
+
+## Example server route sketch
+```ts
+// app/api/chat/route.ts
+import { streamText, createUIMessageStream, convertToModelMessages } from "ai";
+import { openai } from "@ai-sdk/openai";
+
+export async function POST(req: Request) {
+  const body = await req.json();
+  const uiMessages = body.messages;
+
+  const stream = createUIMessageStream({
+    async execute({ writer }) {
+      const modelMessages = convertToModelMessages(uiMessages);
+      const result = await streamText({ model: openai("gpt-4o"), messages: modelMessages });
+      return result.toUIMessageStreamResponse({
+        originalMessages: uiMessages,
+        onFinish: ({ messages }) => saveChat(messages),
+      });
+    },
+  });
+
+  return stream.toDataStreamResponse();
+}
+```
