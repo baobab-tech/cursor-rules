@@ -10,6 +10,11 @@ A collection of useful Cursor Rules for various modern development setups.
 - **Shadcn UI** - Rules for Shadcn UI components
 - **Stack Basics** - General development rules
 - **Tailwind CSS v3** - Rules for Tailwind CSS v3
+- **Supabase** - Rules for Supabase integration
+- **Supabase Auth** - Rules for Supabase authentication
+- **Supabase Migrations** - Rules for database migrations
+- **Supabase Types** - Rules for TypeScript types
+
 
 ## Usage
 

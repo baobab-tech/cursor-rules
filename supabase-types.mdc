@@ -1,0 +1,290 @@
+---
+description: Supabase TypeScript integration - type generation, augmentation, and type safety
+alwaysApply: false
+---
+
+# Supabase TypeScript Integration
+
+## Type Generation Setup
+
+### CLI Installation and Commands
+
+```bash
+# Install Supabase CLI (minimum v1.8.1)
+npm i supabase@">=1.8.1" --save-dev
+
+# Login with Personal Access Token
+npx supabase login
+
+# Initialize project
+npx supabase init
+
+# Generate types from local database
+npx supabase gen types typescript --local > types/database-generated.types.ts
+
+# Generate types from production
+npx supabase gen types typescript --project-id "$PROJECT_REF" --schema public > types/database-generated.types.ts
+
+# Install type-fest for type manipulation
+pnpm add type-fest
+```
+
+### Type-Safe Client Setup
+
+```typescript
+import { createClient } from '@supabase/supabase-js'
+import type { Database } from '@/types/database-augmented'
+
+// Fully typed client with auto-completion
+const supabase = createClient<Database>(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
+// Type-safe queries with auto-completion
+const { data } = await supabase
+  .from('Chat') // ← Auto-completion available
+  .select('id, title, createdAt') // ← Column names typed
+  .eq('userId', user.id) // ← Type-checked
+```
+
+## Helper Types and Shorthands
+
+### Generated Type Shorthands (Official)
+
+```typescript
+// Import helper types from generated file
+import { Tables, Enums } from './database-generated.types'
+
+// Use official shorthand patterns
+let chat: Tables<'Chat'>  // Instead of Database['public']['Tables']['Chat']['Row']
+let message: Tables<'Message'>
+
+// Access enums (if any exist)
+let visibility: Enums<'visibility_type'>
+```
+
+### Custom Helper Types
+
+```typescript
+// types/database.ts - Custom helpers for project structure
+import type { Database } from './database-generated.types'
+
+export type Tables = Database['public']['Tables']
+export type Views = Database['public']['Views'] 
+export type Functions = Database['public']['Functions']
+
+// Row, Insert, Update helpers
+export type Row<T extends keyof Tables> = Tables[T]['Row']
+export type Insert<T extends keyof Tables> = Tables[T]['Insert']
+export type Update<T extends keyof Tables> = Tables[T]['Update']
+
+// Specific table types for common usage
+export type Chat = Row<'Chat'>
+export type Message = Row<'Message'>
+export type Document = Row<'Document'>
+export type Suggestion = Row<'Suggestion'>
+export type Vote = Row<'Vote'>
+export type Stream = Row<'Stream'>
+```
+
+## Enhanced JSON Field Type Inference (v2.48.0+)
+
+### Define Custom JSON Types
+
+```typescript
+// types/json-schemas.ts - Define your custom JSON schemas
+type MessagePart = {
+  type: 'text' | 'image' | 'tool-call'
+  content: string
+  toolCall?: { name: string; args: Record<string, unknown> }
+}
+
+type MessageAttachment = {
+  type: 'image' | 'document' | 'code'
+  url: string
+  name: string
+  size: number
+}
+```
+
+### Type Augmentation with MergeDeep
+
+```typescript
+// types/database-augmented.ts
+import type { MergeDeep } from 'type-fest'
+import type { Database as DatabaseGenerated } from './database-generated.types'
+
+export type Database = MergeDeep<
+  DatabaseGenerated,
+  {
+    public: {
+      Tables: {
+        Message: {
+          Row: {
+            parts: MessagePart[]
+            attachments: MessageAttachment[]
+          }
+          Insert: {
+            parts: MessagePart[]
+            attachments: MessageAttachment[]
+          }
+          Update: {
+            parts?: MessagePart[]
+            attachments?: MessageAttachment[]
+          }
+        }
+      }
+    }
+  }
+>
+```
+
+### Type-Safe JSON Querying
+
+```typescript
+// TypeScript automatically infers correct types with JSON selectors
+const res = await supabase
+  .from('Message')
+  .select('parts->0->content, attachments->0->name, parts')
+
+// TypeScript knows the shape:
+// { content: string; name: string; parts: MessagePart[] }
+
+// Use -> for JSON, ->> for text extraction
+const textRes = await supabase
+  .from('Message') 
+  .select('parts->>0->>content') // Returns string
+```
+
+## Response Types for Complex Queries
+
+### QueryData Pattern (Official)
+
+```typescript
+import { QueryResult, QueryData, QueryError } from '@supabase/supabase-js'
+
+// Define complex query first
+const chatWithMessagesQuery = supabase.from('Chat').select(`
+  id,
+  title,
+  createdAt,
+  Message (
+    id,
+    role,
+    parts,
+    createdAt
+  )
+`)
+
+// Extract the type automatically
+type ChatWithMessages = QueryData<typeof chatWithMessagesQuery>
+
+// Use the typed query
+const { data, error } = await chatWithMessagesQuery
+if (error) throw error
+const chatsWithMessages: ChatWithMessages = data
+```
+
+### Type Override Patterns
+
+```typescript
+// Partial type override (merge: true by default)
+const { data } = await supabase
+  .from('Chat')
+  .select()
+  .overrideTypes<Array<{ id: string }>>()
+
+// Full type replacement 
+const { data } = await supabase
+  .from('Chat')
+  .select()
+  .overrideTypes<Array<{ id: string }>, { merge: false }>()
+
+// With single/maybeSingle
+const { data } = await supabase
+  .from('Chat')
+  .select()
+  .single()
+  .overrideTypes<{ id: string }>()
+```
+
+## Type Generation Automation
+
+### Package.json Scripts
+
+```json
+{
+  "scripts": {
+    "types:generate": "npx supabase gen types typescript --local > types/database-generated.types.ts",
+    "types:prod": "npx supabase gen types typescript --project-id \"$PROJECT_REF\" --schema public > types/database-generated.types.ts",
+    "types:check": "tsc --noEmit"
+  }
+}
+```
+
+### GitHub Actions for Auto-Updates
+
+```yaml
+# .github/workflows/update-types.yml
+name: Update database types
+on:
+  schedule:
+    - cron: '0 0 * * *' # Daily at midnight
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+      PROJECT_REF: <your-project-id>
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm run types:prod
+      - name: check for file changes
+        id: git_status
+        run: echo "status=$(git status -s)" >> $GITHUB_OUTPUT
+      - name: Commit files
+        if: ${{contains(steps.git_status.outputs.status, ' ')}}
+        run: |
+          git add types/database-generated.types.ts
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git commit -m "Update database types" -a
+      - name: Push changes
+        if: ${{contains(steps.git_status.outputs.status, ' ')}}
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.ref }}
+```
+
+## File Organization
+
+### Current Project Structure
+
+```text
+types/
+├── database-generated.types.ts  # Generated from Supabase CLI
+├── database.ts                  # Helper types and shortcuts
+├── database-augmented.ts        # Type augmentation with MergeDeep
+├── json-schemas.ts              # Custom JSON type definitions
+└── errors.ts                    # Error handling types
+```
+
+### Import Patterns
+
+```typescript
+// Main augmented database types
+import type { Database } from '@/types/database-augmented'
+
+// Helper types and shortcuts
+import type { Chat, Message, ChatInsert } from '@/types/database'
+
+// Custom JSON schemas
+import type { MessagePart, MessageAttachment } from '@/types/json-schemas'
+```

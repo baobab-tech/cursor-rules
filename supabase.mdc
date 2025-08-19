@@ -1,0 +1,383 @@
+---
+description: Core Supabase patterns for Next.js 15 - client vs server, querying, RLS.. for any database operation
+alwaysApply: false
+---
+
+# Supabase for Next.js 15 - Core Implementation
+
+## Client vs Server Architecture
+
+### When to Use Client vs Server
+- **Client-side queries**: Real-time updates, user interactions, simple CRUD with RLS
+- **Server-side queries**: Admin operations, complex joins, non-user-scoped data
+- **Rule**: If RLS can secure it, use client-side for better performance and real-time features
+
+### Browser Client (Preferred for User Data)
+```typescript
+import { createClient } from '@/lib/supabase/client'
+import type { Database } from '@/types/database-augmented'
+
+const supabase = createClient<Database>()
+
+// Type-safe direct database access with RLS protection
+const { data } = await supabase
+  .from('Chat') // ← Auto-completion with proper table names
+  .select('id, title, createdAt') // ← Typed column names
+  .eq('userId', user.id) // Always add filters even with RLS
+```
+
+### Server Client (Admin/System Operations)
+```typescript
+import { createClient } from '@/lib/supabase/server'
+import type { Database } from '@/types/database-augmented'
+
+const supabase = await createClient<Database>()
+// Use for operations requiring service key or bypassing RLS
+```
+
+## Row Level Security (RLS) Implementation
+
+### RLS Requirements
+- **MUST** enable RLS on ALL exposed tables: `ALTER TABLE table_name ENABLE ROW LEVEL SECURITY;`
+- No data accessible via anon key without policies
+- RLS acts as implicit WHERE clauses on every query
+
+### Policy Patterns
+```sql
+-- Read policy (SELECT)
+CREATE POLICY "Users can read own chats" ON chats
+  FOR SELECT TO authenticated
+  USING (user_id = auth.uid());
+
+-- Write policy (INSERT)  
+CREATE POLICY "Users can create own chats" ON chats
+  FOR INSERT TO authenticated
+  WITH CHECK (user_id = auth.uid());
+
+-- Update policy
+CREATE POLICY "Users can update own chats" ON chats
+  FOR UPDATE TO authenticated
+  USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());
+```
+
+### Guest User Policies
+```sql
+-- Anonymous users for guest functionality
+CREATE POLICY "Anonymous users can read own data" ON chats
+  FOR SELECT TO anon
+  USING (user_id = auth.uid());
+```
+
+## Query Patterns
+
+### Type-Safe Queries with Helper Types
+```typescript
+import type { Database } from '@/types/database-augmented'
+import type { Chat, Message, Insert, Row } from '@/types/database'
+
+const supabase = createClient<Database>()
+
+// Strongly typed query results using helper types
+const getUserChats = async (userId: string): Promise<Chat[]> => {
+  const { data, error } = await supabase
+    .from('Chat')
+    .select('id, title, createdAt, updatedAt')
+    .eq('userId', userId)
+    .order('updatedAt', { ascending: false })
+
+  if (error) throw error
+  return data // TypeScript infers Chat[] automatically
+}
+
+// Type-safe inserts with helper types
+const createChat = async (chat: Insert<'Chat'>): Promise<Chat> => {
+  const { data, error } = await supabase
+    .from('Chat')
+    .insert(chat)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data // Returns typed Chat object
+}
+
+// Complex query with relationships
+const getChatWithMessages = async (chatId: string) => {
+  const { data, error } = await supabase
+    .from('Chat')
+    .select(`
+      id,
+      title,
+      createdAt,
+      Message (
+        id,
+        role,
+        parts,
+        createdAt
+      )
+    `)
+    .eq('id', chatId)
+    .single()
+
+  if (error) throw error
+  return data // TypeScript infers complex nested type
+}
+```
+
+### Real-time Subscriptions
+```typescript
+// Type-safe real-time with RLS automatically applied
+const subscription = supabase
+  .channel('chat-changes')
+  .on('postgres_changes', 
+    { 
+      event: '*', 
+      schema: 'public', 
+      table: 'Chat',
+      filter: 'userId=eq.' + user.id 
+    },
+    (payload) => {
+      console.log('Chat changed:', payload)
+      // payload.new and payload.old are typed as Chat
+    }
+  )
+  .subscribe()
+
+// Cleanup
+return () => subscription.unsubscribe()
+```
+
+### Optimistic Updates
+```typescript
+const addMessage = async (content: string, chatId: string) => {
+  const tempId = crypto.randomUUID()
+  const optimisticMessage: Message = {
+    id: tempId, role: 'user', parts: [{ type: 'text', content }],
+    attachments: [], chatId, userId: user.id, createdAt: new Date().toISOString()
+  }
+
+  setMessages(prev => [...prev, optimisticMessage]) // Update UI immediately
+
+  try {
+    const { data, error } = await supabase
+      .from('Message')
+      .insert({ role: 'user', parts: [{ type: 'text', content }], attachments: [], chatId, userId: user.id })
+      .select().single()
+
+    if (error) throw error
+    setMessages(prev => prev.map(msg => msg.id === tempId ? data : msg)) // Replace with real data
+  } catch (error) {
+    setMessages(prev => prev.filter(msg => msg.id !== tempId)) // Remove on error
+    throw error
+  }
+}
+```
+
+## Query Organization
+
+### Client Queries (React Query patterns)
+```typescript
+import { useQuery, useMutation } from '@tanstack/react-query'
+
+export function useChats(userId: string) {
+  return useQuery({
+    queryKey: ['chats', userId],
+    queryFn: async (): Promise<Chat[]> => {
+      const { data, error } = await supabase.from('Chat').select('*').eq('userId', userId)
+      if (error) throw error
+      return data
+    }
+  })
+}
+
+export function useCreateChat() {
+  return useMutation({
+    mutationFn: async (chat: Insert<'Chat'>): Promise<Chat> => {
+      const { data, error } = await supabase.from('Chat').insert(chat).select().single()
+      if (error) throw error
+      return data
+    }
+  })
+}
+```
+
+### Server Queries
+```typescript
+export async function getSystemStats() {
+  const supabase = await createClient<Database>()
+  const { data, error } = await supabase.rpc('get_system_stats')
+  if (error) throw error
+  return data
+}
+```
+
+## Performance Optimization
+
+### Best Practices
+- Add explicit filters even with RLS policies
+- Use `select('specific, columns')` instead of `select('*')`
+- Cache query results with React Query or SWR
+- Use pagination for large datasets
+
+### Efficient Patterns
+```typescript
+// Column selection with type inference
+const getChatTitles = async (userId: string) => {
+  const { data, error } = await supabase
+    .from('Chat').select('id, title').eq('userId', userId)
+  if (error) throw error
+  return data // TypeScript infers Pick<Chat, 'id' | 'title'>[]
+}
+
+// Pagination
+const loadChats = async (offset: number, pageSize = 20): Promise<Chat[]> => {
+  const { data, error } = await supabase
+    .from('Chat').select('*').range(offset, offset + pageSize - 1)
+  if (error) throw error
+  return data
+}
+```
+
+### Database Indexes
+```sql
+CREATE INDEX idx_chat_user_id ON "Chat"("userId");
+CREATE INDEX idx_message_chat_user ON "Message"("chatId", "userId");
+CREATE INDEX idx_chat_user_updated ON "Chat"("userId", "updatedAt" DESC);
+```
+
+## Error Handling
+
+```typescript
+const handleDatabaseError = (error: PostgrestError) => {
+  const commonErrors = {
+    '23505': 'Resource already exists',
+    '23503': 'Referenced resource not found', 
+    '42501': 'Permission denied'
+  } as const
+  return commonErrors[error.code as keyof typeof commonErrors] || error.message
+}
+
+const createChat = async (chat: Insert<'Chat'>): Promise<Chat | undefined> => {
+  try {
+    const { data, error } = await supabase.from('Chat').insert(chat).select().single()
+    if (error) {
+      toast.error(handleDatabaseError(error))
+      return
+    }
+    return data
+  } catch (error) {
+    toast.error('An unexpected error occurred')
+  }
+}
+```
+
+## Type System Integration
+
+### Essential Type Imports
+```typescript
+// Primary augmented database types
+import type { Database } from '@/types/database-augmented'
+
+// Helper types for common operations
+import type { Chat, Message, Document, Insert, Update, Row } from '@/types/database'
+
+// Custom JSON schemas for complex fields
+import type { MessagePart, MessageAttachment } from '@/types/json-schemas'
+```
+
+### Common Type Patterns
+```typescript
+import { QueryData, QueryResult, QueryError } from '@supabase/supabase-js'
+
+const supabase = createClient<Database>()
+
+// Basic CRUD operations with helper types
+const insertChat = async (data: Insert<'Chat'>) => { /* ... */ }
+const updateChat = async (id: string, data: Update<'Chat'>) => { /* ... */ }
+const getChat = async (id: string): Promise<Chat> => { /* ... */ }
+
+// Complex queries leverage TypeScript inference
+const query = supabase.from('Chat').select('id, title, Message(id, parts)')
+type QueryResult = QueryData<typeof query> // Auto-inferred complex type
+
+// JSON field access with proper typing
+const { data } = await supabase
+  .from('Message')
+  .select('parts->0->content') // TypeScript knows this returns string
+```
+
+### TypeScript Types for Joins
+
+```typescript
+import { QueryData } from '@supabase/supabase-js'
+
+// Define the join query first
+const chatsWithMessagesQuery = supabase.from('Chat').select(`
+  id,
+  title,
+  createdAt,
+  Message (
+    id,
+    role,
+    parts,
+    createdAt
+  )
+`)
+
+// Extract the nested type automatically
+type ChatsWithMessages = QueryData<typeof chatsWithMessagesQuery>
+
+// Use the typed query result
+const { data, error } = await chatsWithMessagesQuery
+if (error) throw error
+const chatsWithMessages: ChatsWithMessages = data
+
+// Example: Documents with suggestions
+const docsWithSuggestionsQuery = supabase.from('Document').select(`
+  id,
+  title,
+  content,
+  Suggestion (
+    id,
+    originalText,
+    suggestedText,
+    isResolved
+  )
+`)
+type DocsWithSuggestions = QueryData<typeof docsWithSuggestionsQuery>
+```
+
+### Advanced Type Patterns
+For complex type augmentation, JSON schema definitions, and type generation automation, see `@supabase-types` rule.
+
+## File Structure
+
+```text
+lib/
+├── supabase/
+│   ├── client.ts          # Browser client
+│   ├── server.ts          # Server client
+│   └── queries.ts         # Server-only operations
+├── queries/               # Client-side query hooks
+│   ├── useChats.ts
+│   ├── useMessages.ts
+│   └── useDocuments.ts
+└── hooks/
+    └── useSupabase.ts     # Auth integration
+```
+
+## Security Checklist
+
+### Client-Side Security
+- ✅ RLS enabled on all tables
+- ✅ Policies for SELECT, INSERT, UPDATE, DELETE
+- ✅ Anonymous user policies for guest features
+- ✅ Input validation on client before submission
+- ✅ Explicit filters alongside RLS policies
+
+### Performance Security
+- ✅ Indexes on RLS policy columns
+- ✅ Minimize policy complexity
+- ✅ Use specific column selection
+- ✅ Implement query timeouts
