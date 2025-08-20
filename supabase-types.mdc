@@ -88,26 +88,6 @@ export type Vote = Row<'Vote'>
 export type Stream = Row<'Stream'>
 ```
 
-## Enhanced JSON Field Type Inference (v2.48.0+)
-
-### Define Custom JSON Types
-
-```typescript
-// types/json-schemas.ts - Define your custom JSON schemas
-type MessagePart = {
-  type: 'text' | 'image' | 'tool-call'
-  content: string
-  toolCall?: { name: string; args: Record<string, unknown> }
-}
-
-type MessageAttachment = {
-  type: 'image' | 'document' | 'code'
-  url: string
-  name: string
-  size: number
-}
-```
-
 ### Type Augmentation with MergeDeep
 
 ```typescript
@@ -139,6 +119,25 @@ export type Database = MergeDeep<
   }
 >
 ```
+
+### Define Custom JSON Types
+
+```typescript
+// types/json-schemas.ts - Define your custom JSON schemas
+type MessagePart = {
+  type: 'text' | 'image' | 'tool-call'
+  content: string
+  toolCall?: { name: string; args: Record<string, unknown> }
+}
+
+type MessageAttachment = {
+  type: 'image' | 'document' | 'code'
+  url: string
+  name: string
+  size: number
+}
+```
+
 
 ### Type-Safe JSON Querying
 

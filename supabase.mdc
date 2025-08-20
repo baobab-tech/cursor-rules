@@ -1,5 +1,5 @@
 ---
-description: Core Supabase patterns for Next.js 15 - client vs server, querying, RLS.. for any database operation
+description: Any database operation, querying of data or using server side route querying or client side data
 alwaysApply: false
 ---
 
@@ -8,11 +8,13 @@ alwaysApply: false
 ## Client vs Server Architecture
 
 ### When to Use Client vs Server
+
 - **Client-side queries**: Real-time updates, user interactions, simple CRUD with RLS
 - **Server-side queries**: Admin operations, complex joins, non-user-scoped data
 - **Rule**: If RLS can secure it, use client-side for better performance and real-time features
 
 ### Browser Client (Preferred for User Data)
+
 ```typescript
 import { createClient } from '@/lib/supabase/client'
 import type { Database } from '@/types/database-augmented'
@@ -27,6 +29,7 @@ const { data } = await supabase
 ```
 
 ### Server Client (Admin/System Operations)
+
 ```typescript
 import { createClient } from '@/lib/supabase/server'
 import type { Database } from '@/types/database-augmented'
@@ -38,11 +41,13 @@ const supabase = await createClient<Database>()
 ## Row Level Security (RLS) Implementation
 
 ### RLS Requirements
+
 - **MUST** enable RLS on ALL exposed tables: `ALTER TABLE table_name ENABLE ROW LEVEL SECURITY;`
 - No data accessible via anon key without policies
 - RLS acts as implicit WHERE clauses on every query
 
 ### Policy Patterns
+
 ```sql
 -- Read policy (SELECT)
 CREATE POLICY "Users can read own chats" ON chats
@@ -62,6 +67,7 @@ CREATE POLICY "Users can update own chats" ON chats
 ```
 
 ### Guest User Policies
+
 ```sql
 -- Anonymous users for guest functionality
 CREATE POLICY "Anonymous users can read own data" ON chats
@@ -72,6 +78,7 @@ CREATE POLICY "Anonymous users can read own data" ON chats
 ## Query Patterns
 
 ### Type-Safe Queries with Helper Types
+
 ```typescript
 import type { Database } from '@/types/database-augmented'
 import type { Chat, Message, Insert, Row } from '@/types/database'
@@ -126,6 +133,7 @@ const getChatWithMessages = async (chatId: string) => {
 ```
 
 ### Real-time Subscriptions
+
 ```typescript
 // Type-safe real-time with RLS automatically applied
 const subscription = supabase
@@ -149,6 +157,7 @@ return () => subscription.unsubscribe()
 ```
 
 ### Optimistic Updates
+
 ```typescript
 const addMessage = async (content: string, chatId: string) => {
   const tempId = crypto.randomUUID()
@@ -177,6 +186,7 @@ const addMessage = async (content: string, chatId: string) => {
 ## Query Organization
 
 ### Client Queries (React Query patterns)
+
 ```typescript
 import { useQuery, useMutation } from '@tanstack/react-query'
 
@@ -203,6 +213,7 @@ export function useCreateChat() {
 ```
 
 ### Server Queries
+
 ```typescript
 export async function getSystemStats() {
   const supabase = await createClient<Database>()
@@ -215,12 +226,14 @@ export async function getSystemStats() {
 ## Performance Optimization
 
 ### Best Practices
+
 - Add explicit filters even with RLS policies
 - Use `select('specific, columns')` instead of `select('*')`
 - Cache query results with React Query or SWR
 - Use pagination for large datasets
 
 ### Efficient Patterns
+
 ```typescript
 // Column selection with type inference
 const getChatTitles = async (userId: string) => {
@@ -240,6 +253,7 @@ const loadChats = async (offset: number, pageSize = 20): Promise<Chat[]> => {
 ```
 
 ### Database Indexes
+
 ```sql
 CREATE INDEX idx_chat_user_id ON "Chat"("userId");
 CREATE INDEX idx_message_chat_user ON "Message"("chatId", "userId");
@@ -275,6 +289,7 @@ const createChat = async (chat: Insert<'Chat'>): Promise<Chat | undefined> => {
 ## Type System Integration
 
 ### Essential Type Imports
+
 ```typescript
 // Primary augmented database types
 import type { Database } from '@/types/database-augmented'
@@ -287,6 +302,7 @@ import type { MessagePart, MessageAttachment } from '@/types/json-schemas'
 ```
 
 ### Common Type Patterns
+
 ```typescript
 import { QueryData, QueryResult, QueryError } from '@supabase/supabase-js'
 
@@ -349,6 +365,7 @@ type DocsWithSuggestions = QueryData<typeof docsWithSuggestionsQuery>
 ```
 
 ### Advanced Type Patterns
+
 For complex type augmentation, JSON schema definitions, and type generation automation, see `@supabase-types` rule.
 
 ## File Structure
@@ -370,6 +387,7 @@ lib/
 ## Security Checklist
 
 ### Client-Side Security
+
 - ✅ RLS enabled on all tables
 - ✅ Policies for SELECT, INSERT, UPDATE, DELETE
 - ✅ Anonymous user policies for guest features
@@ -377,6 +395,7 @@ lib/
 - ✅ Explicit filters alongside RLS policies
 
 ### Performance Security
+
 - ✅ Indexes on RLS policy columns
 - ✅ Minimize policy complexity
 - ✅ Use specific column selection

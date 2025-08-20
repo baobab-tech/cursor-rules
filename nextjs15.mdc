@@ -10,6 +10,7 @@ alwaysApply: false
 ---
 
 ## Next.js 15 Specific Rules
+
 - Use latest Next.js 15 with App Router exclusively
 - Prioritize Server Components over Client Components
 - Employ TypeScript in strict mode
@@ -18,12 +19,15 @@ alwaysApply: false
 - Implement proper error boundaries and loading states
 
 ## Component Organization Strategy
+
 - **Page-specific components**: Place components that are only used by a specific page/route next to that page in the app folder
 - **Reusable components**: Use the `components/` folder for components shared across multiple pages
 - **UI components**: shadcn/ui components go in `components/ui/` folder
 
 ## Async Request APIs
+
 - Use **async** access for `cookies`, `headers`, `draftMode`, route params, and `searchParams`:
+
   ```ts
   import { cookies, headers } from "next/headers";
   export async function Component() {
@@ -32,29 +36,37 @@ alwaysApply: false
     // ...
   }
   ```
+
 - When migrating older code, prefer the official codemod. Avoid synchronous access in new code.
 
 ## Caching Semantics (New Defaults)
+
 - GET Route Handlers are uncached by default. Opt in to static behavior only when truly static:
+
   ```ts
   export const dynamic = "force-static";
   ```
+
 - Client Router Cache has `staleTime=0` for pages by default; don't assume cached page data across navigations.
 - Keep layout data stable to benefit from partial rendering; don't re-fetch layout data unnecessarily.
 
 ## Server Actions Security
+
 - Keep actions in `app/` and mark `'use server'`. Don't assume action IDs are stable across builds.
 - Remove unused Server Actions; they're pruned at build. Avoid leaking action logic to the client.
 
 ## Config & Observability
+
 - Prefer `next.config.ts` for typed config.
 - Use `instrumentation.ts` and the stable `register()` API for lifecycle hooks.
 - Consider `unstable_after` (if enabled) for non-blocking post-response work like logging or analytics.
 
 ## Error Handling & Loading States
+
 - Implement error.tsx files at appropriate route segments for error boundaries
 - Use loading.tsx files for loading states during navigation
 - Handle both client and server errors gracefully
 
 ## Pages Router Notes
+
 - If a legacy `pages/` area exists, keep it on React 18 until migration; do not mix 18/19 in the same component tree.

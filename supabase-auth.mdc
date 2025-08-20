@@ -8,6 +8,7 @@ alwaysApply: false
 ## Authentication Setup
 
 ### Environment Variables
+
 ```bash
 # .env.local
 NEXT_PUBLIC_SUPABASE_URL=your-project-url
@@ -16,6 +17,7 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key # Server-only
 ```
 
 ### Client Configuration
+
 ```typescript
 // lib/supabase/client.ts
 import { createBrowserClient } from '@supabase/ssr'
@@ -30,6 +32,7 @@ export const createClient = () => {
 ```
 
 ### Server Configuration
+
 ```typescript
 // lib/supabase/server.ts
 import { createServerClient } from '@supabase/ssr'
@@ -67,6 +70,7 @@ export const createClient = async () => {
 ## User Context and State Management
 
 ### User Context Provider
+
 ```typescript
 // contexts/AuthContext.tsx
 'use client'
@@ -134,6 +138,7 @@ export const useAuth = () => {
 ```
 
 ### Server-Side User Access
+
 ```typescript
 // lib/auth/server.ts
 import { createClient } from '@/lib/supabase/server'
@@ -181,6 +186,7 @@ export const getUserProfile = async () => {
 ## Authentication Actions
 
 ### Sign Up Action
+
 ```typescript
 // lib/auth/actions.ts
 'use server'
@@ -228,6 +234,7 @@ export async function signUp(formData: FormData) {
 ```
 
 ### Sign In Action
+
 ```typescript
 const SignInSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -254,6 +261,7 @@ export async function signIn(formData: FormData) {
 ```
 
 ### OAuth Sign In
+
 ```typescript
 export async function signInWithOAuth(provider: 'google' | 'github' | 'discord') {
   const supabase = await createClient()
@@ -279,6 +287,7 @@ export async function signInWithOAuth(provider: 'google' | 'github' | 'discord')
 ## Middleware for Auth Protection
 
 ### Auth Middleware
+
 ```typescript
 // middleware.ts
 import { createServerClient } from '@supabase/ssr'
@@ -340,6 +349,7 @@ export const config = {
 ## User Profile Management
 
 ### Profile Hook
+
 ```typescript
 // hooks/useProfile.ts
 import { useAuth } from '@/contexts/AuthContext'
@@ -397,6 +407,7 @@ export function useUpdateProfile() {
 ## Guest User Support
 
 ### Guest Session Management
+
 ```typescript
 // lib/auth/guest.ts
 import { createClient } from '@/lib/supabase/client'
@@ -434,6 +445,7 @@ export const convertGuestToUser = async (email: string, password: string) => {
 ## Auth Components
 
 ### Protected Route Component
+
 ```typescript
 // components/ProtectedRoute.tsx
 'use client'
@@ -470,6 +482,7 @@ export function ProtectedRoute({ children, fallback }: ProtectedRouteProps) {
 ```
 
 ### Auth Form Component
+
 ```typescript
 // components/AuthForm.tsx
 'use client'
@@ -549,6 +562,7 @@ export function AuthForm({ mode }: AuthFormProps) {
 ## Auth Testing Patterns
 
 ### Test User Creation
+
 ```typescript
 // tests/auth.test.ts
 import { createClient } from '@/lib/supabase/client'

@@ -5,10 +5,13 @@ alwaysApply: true
 ---
 
 ## Developer Mindset
+
 You are a senior developer with expertise in TypeScript, React 19, Next.js 15 (App Router), Vercel AI SDK, Shadcn UI, Radix UI, and Tailwind CSS. Your approach emphasizes creating high-quality, maintainable solutions.
 
 ## Analysis Process
+
 Before addressing any request:
+
 - Identify the type of task (code creation, debugging, architecture)
 - Recognize languages and frameworks involved
 - Note explicit and implicit requirements
@@ -16,24 +19,30 @@ Before addressing any request:
 - Consider project context and limitations
 
 ## Stack Overview
+
 This project uses modern web technologies with specialized rules for each layer:
+
 - **Next.js 15**: See `@nextjs15` for async APIs, caching, and server actions
 - **React 19**: See `@react19` for server components and async transitions  
 - **AI SDK v5**: See `@ai-sdk-5` for typed chat, tools, and streaming
 - **shadcn/ui**: See `@shadcn-ui` for component organization and variants
 - **Tailwind v3**: See `@tailwind-v3` for utility-first styling and theming
+- **Supabase**: See `@supabase` for database and user authentication
 
 ## Core Principles
+
 - **TypeScript strict mode**: Prefer inferred types; add explicit return types for server routes and actions.
 - **App Router organization**: `app/` for routes; `components/`, `lib/`, `server/`, `scripts/`.
 - **Server Components first**: Opt into `"use client"` only when you need state, effects, or browser APIs.
 - **Import aliases**: Use `@/components`, `@/lib`, `@/hooks`, `@/utils` as defined in `components.json`.
+- **Database Migrations**: Create migrations following the supabase migrations rule
 
 ## Development Experience
-- Run dev with `next dev --turbo` by default.
+
 - Keep components small and composable; colocate tests next to code.
 - Treat lint errors as blocking; keep formatting consistent.
 
 ## Security & Privacy
+
 - Store secrets in environment variables; never hardcode keys or model tokens.
 - Keep server-only logic and keys in Server Components/Route Handlers; never expose via Client Components.
