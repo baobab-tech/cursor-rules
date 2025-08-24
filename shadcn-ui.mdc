@@ -9,7 +9,7 @@ alwaysApply: false
 
 ## Component Installation & Usage
 
-- Use shadcn/ui components via `pnpm dlx shadcn@latest add [component]` - avoid custom implementations of common UI patterns.
+- Use shadcn/ui components via `pnpx shadcn@latest add [component]` - avoid custom implementations of common UI patterns.
 - Follow the component structure: place reusable UI in `@/components/ui/`, feature-specific in `@/components/`.
 - Import from `@/components/ui/[component]` and compose with custom logic in feature components.
 

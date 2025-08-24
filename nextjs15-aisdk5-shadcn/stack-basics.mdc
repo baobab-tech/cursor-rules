@@ -37,10 +37,29 @@ This project uses modern web technologies with specialized rules for each layer:
 - **Import aliases**: Use `@/components`, `@/lib`, `@/hooks`, `@/utils` as defined in `components.json`.
 - **Database Migrations**: Create migrations following the supabase migrations rule
 
+## Code Style
+
+- Your code is elegant short, not redundant
+- You only use console.log temporarily to troubleshoot
+- You write jsdocs for all your functions, short but clear
+- You refactor tsx components when possible without creating too may layers/depths
+- You use services for things like redis, db, etc.. check if they exist before writing them
+
+## UI Components
+- Follow the @shadcn/ui rules to add components like Alert, SideBar, Button.
+- Never create your own base components
+- Expand on base components if needed followin @shadcn/ui 
+- Import always with the alias path e.g. @/components/ui/button
+
+## Typescript
+
+- Always use import types e.g. `import type { NextRequest } from 'next/server'`
+
 ## Development Experience
 
 - Keep components small and composable; colocate tests next to code.
 - Treat lint errors as blocking; keep formatting consistent.
+- Never run npm run lint unless asked.. just read the lint as you have it
 
 ## Security & Privacy
 
