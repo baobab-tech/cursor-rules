@@ -1,5 +1,5 @@
 ---
-description: Next.js 15 best practices (async request APIs, caching, actions security)
+description: Next.js 15 best practices (async request APIs, caching, actions security, feature development, component development)
 globs:
   - "app/**/*"
   - "next.config.*"
@@ -70,3 +70,33 @@ alwaysApply: false
 ## Pages Router Notes
 
 - If a legacy `pages/` area exists, keep it on React 18 until migration; do not mix 18/19 in the same component tree.
+
+[1 tool called]
+
+Here's a typical rule you should add to your `@stack-basics` to prevent hydration errors:
+
+## Hydration Error Prevention
+
+**Never use non-deterministic functions in Server Components or during initial render:**
+
+- ❌ `Math.random()`, `Date.now()`, `crypto.randomUUID()` in `useMemo`/`useState` initializers
+- ❌ Browser-only APIs (`window`, `localStorage`, `navigator`) without client-side checks
+- ❌ Dynamic content that differs between server and client
+
+**Safe patterns:**
+- ✅ Use `useEffect` for randomization after hydration
+- ✅ Initialize state with deterministic values, randomize in `useEffect`
+- ✅ Use `useIsomorphicLayoutEffect` or `typeof window !== 'undefined'` checks
+- ✅ Defer dynamic content with `useState` + `useEffect` pattern
+
+**Example fix:**
+```tsx
+// ❌ Causes hydration error
+const randomData = useMemo(() => data.sort(() => Math.random() - 0.5), []);
+
+// ✅ Safe approach
+const [randomData, setRandomData] = useState(data.slice(0, 4));
+useEffect(() => {
+  setRandomData([...data].sort(() => Math.random() - 0.5));
+}, []);
+```

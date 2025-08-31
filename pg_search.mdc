@@ -1,0 +1,89 @@
+---
+description: Any webcache search or search operation that involved database (or web search) - using pg_search which is a postgres search extension by paradeDb 
+alwaysApply: false
+---
+
+# ParadeDB pg_search: Basic Guide and Examples
+
+**pg_search** is a PostgreSQL extension by ParadeDB that brings Elasticsearch-quality full-text search directly into PostgreSQL using BM25 relevance scoring and inverted indexes.
+
+## How It Works
+
+1. **BM25 Index**: Creates an inverted index (like Elasticsearch) stored natively in PostgreSQL
+2. **Real-time Updates**: Index automatically updates when data changes - no manual reindexing
+3. **Native PostgreSQL**: Uses the `@@@` operator and custom functions within standard SQL
+4. **Performance**: 20x faster than PostgreSQL's native `tsvector` for large datasets
+
+## Setting Up a BM25 Index
+
+First, create a BM25 index on your table and columns:
+
+```sql
+CREATE INDEX articles_search_idx ON articles
+USING bm25 (id, title, content, description)
+WITH (key_field='id');
+```
+
+- `key_field` specifies the unique identifier column (usually your primary key)
+- Include all columns you want to search in the index definition
+- The index name can be anything descriptive
+
+## Basic Search Examples
+
+### 1. Simple Term Search
+```sql
+SELECT *, paradedb.score(id) AS relevance_score
+FROM articles
+WHERE title @@@ 'postgres' OR content @@@ 'postgres'
+ORDER BY relevance_score DESC
+LIMIT 10;
+```
+
+### 2. Multi-Column Search (OR logic)
+```sql
+SELECT id, title, content
+FROM articles  
+WHERE title @@@ 'database' OR content @@@ 'database' OR description @@@ 'database'
+ORDER BY paradedb.score(id) DESC;
+```
+
+### 3. Exact Phrase Search
+```sql
+SELECT id, title
+FROM articles
+WHERE content @@@ '"full text search"'
+ORDER BY paradedb.score(id) DESC;
+```
+
+### 4. Fuzzy Search (Typo Tolerance)
+```sql
+-- Finds "postgres", "postgresql", etc. with 1 character difference
+SELECT id, title
+FROM articles
+WHERE id @@@ paradedb.match('title', 'postgre', distance => 1);
+```
+
+### 5. Search with Highlighting
+```sql
+SELECT id, title, paradedb.snippet(content) as highlighted_content
+FROM articles
+WHERE content @@@ 'database'
+LIMIT 5;
+```
+
+## Key Functions
+
+- **`@@@`**: The main search operator (works on individual columns)
+- **`paradedb.score(id)`**: Returns BM25 relevance score for ranking
+- **`paradedb.match()`**: For fuzzy/similarity searches with distance parameter
+- **`paradedb.snippet()`**: Highlights matched terms in results (wrapped in `<b>` tags)
+
+## Important Notes
+
+- The `@@@` operator works on **columns**, not table names
+- Always include `paradedb.score(id)` for relevance ranking
+- Use the same `id` field specified in your index's `key_field`
+- Index updates automatically when you INSERT/UPDATE/DELETE rows
+- Based on [ParadeDB's documentation](https://www.paradedb.com/blog/introducing_search), it provides near-Elasticsearch performance within PostgreSQL
+
+This approach eliminates the need for external search engines while providing powerful full-text search capabilities directly in your PostgreSQL database.

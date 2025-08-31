@@ -35,6 +35,7 @@ This project uses modern web technologies with specialized rules for each layer:
 - **App Router organization**: `app/` for routes; `components/`, `lib/`, `server/`, `scripts/`.
 - **Server Components first**: Opt into `"use client"` only when you need state, effects, or browser APIs.
 - **Import aliases**: Use `@/components`, `@/lib`, `@/hooks`, `@/utils` as defined in `components.json`.
+- **Async APIs**: In Next.js 15, `params`, `searchParams`, `headers()`, and `cookies()` are async - always await them.
 - **Database Migrations**: Create migrations following the supabase migrations rule
 
 ## Code Style
@@ -51,6 +52,12 @@ This project uses modern web technologies with specialized rules for each layer:
 - Expand on base components if needed followin @shadcn/ui 
 - Import always with the alias path e.g. @/components/ui/button
 
+## Next.js 15 Patterns
+
+- **Route Handlers**: Always await `params` before destructuring: `const { id } = await params;`
+- **Page Components**: Always await `params` and `searchParams`: `const { id } = await params;`
+- **Server Functions**: Always await `headers()` and `cookies()`: `const headersList = await headers();`
+
 ## Typescript
 
 - Always use import types e.g. `import type { NextRequest } from 'next/server'`
@@ -59,9 +66,14 @@ This project uses modern web technologies with specialized rules for each layer:
 
 - Keep components small and composable; colocate tests next to code.
 - Treat lint errors as blocking; keep formatting consistent.
-- Never run npm run lint unless asked.. just read the lint as you have it
+- Never run `npm run lint` unless asked.. just read the lint as you have it
+- Assume that `pnpm dev` is already running don't call that at the end of changes.
 
 ## Security & Privacy
 
 - Store secrets in environment variables; never hardcode keys or model tokens.
 - Keep server-only logic and keys in Server Components/Route Handlers; never expose via Client Components.
+
+## Install packages
+- Always check package.json first
+- Always use pnpm not npm
