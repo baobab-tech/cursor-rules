@@ -50,6 +50,13 @@ supabase migration new add_user_profiles
 
 # Create migration for RLS policies
 supabase migration new setup_rls_policies
+
+# Then you run
+supabase migration up # to apply the migration to the local db
+
+# Only if the users asks you can then push to the remote
+supabase db push # to push the changes to the remote db
+
 ```
 
 #### Approach Option 2 (change the schema then diff)

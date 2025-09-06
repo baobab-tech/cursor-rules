@@ -1,0 +1,25 @@
+---
+description: Project specifics
+globs:
+alwaysApply: true
+---
+
+## Databases
+This project uses:
+1. supabase for the app data.
+2. /db_data which has a drizzle setup and another remote database for data that is used by this app.
+
+When to use what?
+- Any data for web searches, knowledge searches etc, use the db_data
+- Any user data, auth, tenant, user profile, web query caching use the supabase 
+
+## Supabase data
+- located in /lib/supabase
+- most reusable queries are in queries.ts
+
+## Data DB
+- You import schema table types from '@datadb/schema'
+- Use drizzle  
+- The drizzle file is located in /db_data/schema.ts
+
+To update the data db schema you edit the schema file then run `npx drizzle-kit push`
