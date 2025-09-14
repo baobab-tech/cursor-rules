@@ -1,0 +1,284 @@
+---
+description: Explains how to use SWR and how components work with fetching data, fetching API data, optimistic UI updates
+alwaysApply: false
+---
+# SWR Development Specifications
+
+## Selection Criteria
+
+### Use SWR When:
+- Building React applications with remote data dependencies
+- Multiple components require identical data sources
+- Real-time data synchronization across UI components is required
+- Background data refreshing enhances user experience
+- Optimistic UI updates improve perceived performance
+- Automatic error handling and retry logic is beneficial
+
+### Do Not Use SWR When:
+- Developing non-React applications
+- Data fetching occurs once per application lifecycle
+- Static data never requires updates
+- Real-time updates would degrade performance
+- Simple request-response patterns suffice
+
+## Implementation Requirements
+
+### Mandatory Fetcher Function
+```javascript
+// Required: Define fetcher before useSWR implementation
+const fetcher = (...args) => fetch(...args).then(res => res.json())
+
+// Alternative fetchers
+const axiosFetcher = url => axios.get(url).then(res => res.data)
+const graphqlFetcher = query => request('/api/graphql', query)
+```
+
+### Standard Hook Pattern
+```javascript
+// Rule: Always destructure data, error, isLoading
+const { data, error, isLoading } = useSWR(key, fetcher, options)
+
+// Rule: Handle all three states
+if (error) return <ErrorComponent />
+if (isLoading) return <LoadingComponent />
+return <DataComponent data={data} />
+```
+
+## Custom Hook Requirements
+
+### Mandatory Abstraction Pattern
+```javascript
+// Rule: Create custom hooks for each data entity
+function useUser(id) {
+  const { data, error, isLoading } = useSWR(
+    id ? `/api/user/${id}` : null, 
+    fetcher
+  )
+  
+  return {
+    user: data,
+    isLoading,
+    isError: error
+  }
+}
+
+// Rule: Use conditional keys for dependent requests
+const key = userId ? `/api/user/${userId}` : null
+```
+
+### Naming Conventions
+- Custom hooks: `use[EntityName]` (e.g., `useUser`, `useProducts`)
+- Return objects: `{ [entity], isLoading, isError }`
+- Keys: Include all parameters affecting the request
+
+## Key Construction Rules
+
+### Key Format Requirements
+```javascript
+// Correct: Include all request parameters
+`/api/user/${userId}/posts?limit=${limit}&page=${page}`
+
+// Correct: Use arrays for complex keys
+['/api/search', { query, filters, page }]
+
+// Incorrect: Missing dynamic parameters
+'/api/user/posts'
+```
+
+### Conditional Key Rules
+```javascript
+// Rule: Use null to prevent requests
+const key = shouldFetch ? '/api/data' : null
+
+// Rule: Dependencies must be defined
+const key = userId && isEnabled ? `/api/user/${userId}` : null
+```
+
+## Mutation Specifications
+
+### Bound Mutate (Preferred Method)
+```javascript
+// Rule: Use bound mutate within the same component
+function Component() {
+  const { data, mutate } = useSWR('/api/user', fetcher)
+  
+  const updateData = async () => {
+    // Rule: Optimistic update before API call
+    mutate({ ...data, field: newValue }, false)
+    
+    try {
+      await apiUpdate(newValue)
+      // Rule: Revalidate after successful update
+      mutate()
+    } catch (error) {
+      // Rule: Revert on error
+      mutate(data)
+    }
+  }
+}
+```
+
+### Global Mutate Usage
+```javascript
+// Rule: Use global mutate for cross-component updates
+import { mutate } from 'swr'
+
+// Single key revalidation
+mutate('/api/user')
+
+// Pattern-based revalidation
+mutate(key => typeof key === 'string' && key.startsWith('/api/user'))
+```
+
+### useSWRMutation Requirements
+```javascript
+// Rule: Use for manual trigger scenarios
+const { trigger, isMutating, data, error } = useSWRMutation(
+  '/api/endpoint',
+  mutationFetcher
+)
+
+// Rule: Always handle isMutating state
+<button disabled={isMutating} onClick={() => trigger(payload)}>
+  Submit
+</button>
+```
+
+## Configuration Standards
+
+### Required Options for Production
+```javascript
+const options = {
+  // Rule: Configure based on data freshness requirements
+  revalidateOnFocus: true,          // Default: true
+  revalidateOnReconnect: true,      // Default: true
+  refreshInterval: 0,               // Default: disabled
+  errorRetryCount: 3,               // Default: unlimited
+  errorRetryInterval: 5000,         // Default: 5000ms
+  dedupingInterval: 2000,           // Default: 2000ms
+  
+  // Rule: Set timeouts for user feedback
+  loadingTimeout: 3000,
+  
+  // Rule: Use for smooth transitions
+  keepPreviousData: false           // Default: false
+}
+```
+
+### Performance Optimization Rules
+```javascript
+// Rule: Disable unnecessary revalidation
+{ revalidateOnFocus: false }        // For static data
+{ refreshInterval: 30000 }          // For periodic updates
+{ dedupingInterval: 5000 }          // For high-frequency requests
+```
+
+## Error Handling Specifications
+
+### Standard Error Implementation
+```javascript
+// Rule: Implement consistent error boundaries
+const { data, error, isLoading } = useSWR('/api/data', fetcher, {
+  shouldRetryOnError: (error) => error.status !== 404,
+  onError: (error, key) => {
+    console.error(`SWR Error for ${key}:`, error)
+    // Rule: Log errors for monitoring
+  }
+})
+```
+
+### Retry Logic Requirements
+```javascript
+// Rule: Configure retry behavior explicitly
+{
+  errorRetryCount: 3,
+  errorRetryInterval: 5000,
+  shouldRetryOnError: (error) => {
+    // Rule: Define which errors should retry
+    return error.status >= 500 || error.status === 0
+  }
+}
+```
+
+## Optimistic Update Patterns
+
+### Standard Optimistic Implementation
+```javascript
+// Rule: Always provide rollback mechanism
+mutate('/api/user', updateUser(newData), {
+  optimisticData: current => ({ ...current, ...newData }),
+  rollbackOnError: true,
+  populateCache: true,
+  revalidate: false  // Skip if API returns updated data
+})
+```
+
+### Optimistic Update Rules
+- Always show immediate feedback to users
+- Implement rollback for failed operations
+- Use `populateCache: false` when API returns different data structure
+- Set `revalidate: false` when mutation returns fresh data
+
+## Cache Management Rules
+
+### Cache Invalidation Patterns
+```javascript
+// Rule: Invalidate related data after mutations
+const updateUser = async () => {
+  await apiCall()
+  
+  // Invalidate user data
+  mutate('/api/user')
+  
+  // Invalidate related data
+  mutate(key => key.startsWith('/api/user/'))
+}
+```
+
+### Cache Clearing Requirements
+```javascript
+// Rule: Clear cache on authentication changes
+const logout = () => {
+  // Clear all cache
+  mutate(() => true, undefined, { revalidate: false })
+  
+  // Or clear specific patterns
+  mutate(key => key.startsWith('/api/authenticated/'))
+}
+```
+
+## Performance Guidelines
+
+### Component Organization Rules
+- Create one custom hook per data entity
+- Avoid multiple useSWR calls for related data in single component
+- Use SWR's automatic deduplication instead of manual caching
+- Implement loading states to prevent layout shifts
+
+### Memory Management
+- Use conditional keys to prevent unnecessary requests
+- Implement proper cleanup in useEffect when needed
+- Configure appropriate `dedupingInterval` for request patterns
+- Set `refreshInterval: 0` for static data
+
+## Testing Requirements
+
+### Mock Implementation Standards
+```javascript
+// Rule: Mock SWR in tests
+import { SWRConfig } from 'swr'
+
+const TestWrapper = ({ children, fallback = {} }) => (
+  <SWRConfig value={{ provider: () => new Map(), fallback }}>
+    {children}
+  </SWRConfig>
+)
+```
+
+### Test Coverage Requirements
+- Test loading, error, and success states
+- Verify optimistic updates and rollbacks
+- Test key generation with various parameters
+- Validate error handling and retry logic
+
+These specifications ensure consistent, performant, and maintainable SWR implementations across development teams and AI coding agents.
